@@ -38,3 +38,7 @@
     dest: /etc/mongodb.conf
     regexp: "bind_ip =.*"
     line: "bind_ip = {{ controller_host }}"
+
+- lineinfile:
+    dest: /etc/mongodb.conf
+    line: smallfiles = true

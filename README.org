@@ -1,3 +1,5 @@
 #+TITLE: OpenStack Mitaka setup using Ansible
 
 This isn't [[http://docs.openstack.org/developer/openstack-ansible/install-guide/][openstack-ansible]] but it's what I need.
+
+It automates the part of the [[http://docs.openstack.org/mitaka/install-guide-ubuntu/][Mitaka Ubuntu Install Guide]] that's interesting to me.
