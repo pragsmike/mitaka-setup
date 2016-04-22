@@ -1,0 +1,3 @@
+#+TITLE: OpenStack Mitaka setup using Ansible
+
+This isn't [[http://docs.openstack.org/developer/openstack-ansible/install-guide/][openstack-ansible]] but it's what I need.

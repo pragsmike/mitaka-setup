@@ -1,0 +1,6 @@
+---
+- hosts: mitaka
+  vars:
+    - controller_host: 192.168.2.171
+  roles:
+    - controller/common

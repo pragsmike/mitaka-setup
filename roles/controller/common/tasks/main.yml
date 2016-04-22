@@ -1,0 +1,40 @@
+---
+- apt: name=software-properties-common state=latest
+#sudo add-apt-repository cloud-archive:mitaka
+#- apt_repository: repo='cloud-archive:mitaka'
+- apt_repository: repo='deb http://ubuntu-cloud.archive.canonical.com/ubuntu trusty-updates/mitaka main'
+- apt_key: keyserver=keyserver.ubuntu.com id=5EDB1B62EC4926EA
+- apt: update_cache=yes upgrade=dist cache_valid_time=86400
+- apt: name=python-openstackclient state=latest
+
+- apt:
+    state: present
+    name:
+      - mariadb-server
+      - python-pymysql
+
+- copy:
+    dest: /etc/mysql/conf.d/openstack.cnf
+    content: |
+      [mysqld]
+      bind-address = {{controller_host}}
+      default-storage-engine = innodb
+      innodb_file_per_table
+      collation-server = utf8_general_ci
+      character-set-server = utf8
+
+- service: name=mysqld state=restarted
+
+#- shell: mysql_secure_installation
+
+- apt:
+    state: present
+    name:
+      - mongodb-server
+      - mongodb-clients
+      - python-pymongo
+
+- lineinfile:
+    dest: /etc/mongodb.conf
+    regexp: "bind_ip =.*"
+    line: "bind_ip = {{ controller_host }}"
