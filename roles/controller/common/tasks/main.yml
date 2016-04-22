@@ -42,3 +42,125 @@
 - lineinfile:
     dest: /etc/mongodb.conf
     line: smallfiles = true
+
+- service: name=mongodb state=stopped
+- shell: rm -f /var/lib/mongodb/journal/prealloc.*
+- service: name=mongodb state=started
+
+- apt:
+    name: rabbitmq-server
+    state: latest
+
+- rabbitmq_user:
+    user: openstack
+    password: "{{RABBIT_PASS}}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    state: present
+
+- apt:
+    state: present
+    name:
+      - memcached
+      - python-memcache
+
+- lineinfile:
+    dest: /etc/memcached.conf
+    regexp: "^(.*)-l 127.0.0.1(.*)$"
+    line: "\\1-l {{ controller_host }}\\2"
+    backrefs: yes
+
+- service: name=memcached state=restarted
+
+- apt: name=python-mysqldb state=present
+
+- mysql_db:
+    name: keystone
+    state: present
+
+- mysql_user: name=keystone password={{KEYSTONE_DBPASS}} priv=keystone.*:ALL,GRANT host=localhost state=present
+- mysql_user: name=keystone password={{KEYSTONE_DBPASS}} priv=keystone.*:ALL,GRANT host=% state=present
+
+- copy: dest=/etc/init/keystone.override  content="manual"
+
+- apt:
+    state: present
+    name:
+      - keystone
+      - apache2
+      - libapache2-mod-wsgi
+
+- lineinfile:
+    dest: /etc/keystone/keystone.conf
+    regexp: "admin_token =.*"
+    line: "admin_token = {{ADMIN_TOKEN}}"
+
+- lineinfile:
+    dest: /etc/keystone/keystone.conf
+    regexp: "^connection = (.*)"
+    line: "connection = mysql+pymysql://keystone:{{KEYSTONE_DBPASS}}@{{controller_host}}/keystone"
+    backrefs: yes
+
+- lineinfile:
+    dest: /etc/keystone/keystone.conf
+    regexp: "^#*.*provider ="
+    line: "provider = fernet"
+
+- shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+- shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+
+- lineinfile:
+    dest: /etc/apache2/apache2.conf
+    regexp: "^#*.*ServerName"
+    line:  "ServerName {{controller_host}}"
+
+- copy:
+    dest: /etc/apache2/sites-available/wsgi-keystone.conf
+    content: |
+      Listen 5000
+      Listen 35357
+
+      <VirtualHost *:5000>
+          WSGIDaemonProcess keystone-public processes=5 threads=1 user=keystone group=keystone display-name=%{GROUP}
+          WSGIProcessGroup keystone-public
+          WSGIScriptAlias / /usr/bin/keystone-wsgi-public
+          WSGIApplicationGroup %{GLOBAL}
+          WSGIPassAuthorization On
+          ErrorLogFormat "%{cu}t %M"
+          ErrorLog /var/log/apache2/keystone.log
+          CustomLog /var/log/apache2/keystone_access.log combined
+
+          <Directory /usr/bin>
+              Require all granted
+          </Directory>
+      </VirtualHost>
+
+      <VirtualHost *:35357>
+          WSGIDaemonProcess keystone-admin processes=5 threads=1 user=keystone group=keystone display-name=%{GROUP}
+          WSGIProcessGroup keystone-admin
+          WSGIScriptAlias / /usr/bin/keystone-wsgi-admin
+          WSGIApplicationGroup %{GLOBAL}
+          WSGIPassAuthorization On
+          ErrorLogFormat "%{cu}t %M"
+          ErrorLog /var/log/apache2/keystone.log
+          CustomLog /var/log/apache2/keystone_access.log combined
+
+          <Directory /usr/bin>
+              Require all granted
+          </Directory>
+      </VirtualHost>
+
+- file:
+    dest: /etc/apache2/sites-enabled/wsgi-keystone.conf
+    src:  /etc/apache2/sites-available/wsgi-keystone.conf
+    state: link
+
+- service:
+    name: apache2
+    state: restarted
+
+- file:
+    dest: /var/lib/keystone/keystone.db
+    state: absent
