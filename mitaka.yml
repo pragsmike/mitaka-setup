@@ -4,3 +4,7 @@
     - controller_host: mitaka
   roles:
     - controller/common
+  environment:
+    OS_URL: "{{KEYSTONE_ADMIN_URL}}"
+    OS_IDENTITY_API_VERSION: 3
+    OS_TOKEN: "{{ADMIN_TOKEN}}"
