@@ -2,8 +2,8 @@
 - apt: name=software-properties-common state=latest
 #sudo add-apt-repository cloud-archive:mitaka
 #- apt_repository: repo='cloud-archive:mitaka'
-- apt_repository: repo='deb http://ubuntu-cloud.archive.canonical.com/ubuntu trusty-updates/mitaka main'
-- apt_key: keyserver=keyserver.ubuntu.com id=5EDB1B62EC4926EA
+#- apt_repository: repo='deb http://ubuntu-cloud.archive.canonical.com/ubuntu xenial-updates/mitaka main'
+#- apt_key: keyserver=keyserver.ubuntu.com id=5EDB1B62EC4926EA
 - apt: update_cache=yes upgrade=dist cache_valid_time=86400
 - apt: name=python-openstackclient state=latest
 
@@ -23,7 +23,7 @@
       collation-server = utf8_general_ci
       character-set-server = utf8
 
-- service: name=mysqld state=restarted
+- service: name=mysql.service state=restarted
 
 #- shell: mysql_secure_installation
 
@@ -53,7 +53,7 @@
 
 - rabbitmq_user:
     user: openstack
-    password: "{{RABBIT_PASS}}"
+    password: "{{nova_rabbit_password}}"
     vhost: /
     configure_priv: .*
     read_priv: .*
@@ -80,8 +80,8 @@
     name: keystone
     state: present
 
-- mysql_user: name=keystone password={{KEYSTONE_DBPASS}} priv=keystone.*:ALL,GRANT host=localhost state=present
-- mysql_user: name=keystone password={{KEYSTONE_DBPASS}} priv=keystone.*:ALL,GRANT host=% state=present
+- mysql_user: name=keystone password={{keystone_mysql_password}} priv=keystone.*:ALL,GRANT host=localhost state=present
+- mysql_user: name=keystone password={{keystone_mysql_password}} priv=keystone.*:ALL,GRANT host=% state=present
 
 - copy: dest=/etc/init/keystone.override  content="manual"
 
@@ -95,12 +95,12 @@
 - lineinfile:
     dest: /etc/keystone/keystone.conf
     regexp: "admin_token =.*"
-    line: "admin_token = {{ADMIN_TOKEN}}"
+    line: "admin_token = {{keystone_admin_token}}"
 
 - lineinfile:
     dest: /etc/keystone/keystone.conf
     regexp: "^connection = (.*)"
-    line: "connection = mysql+pymysql://keystone:{{KEYSTONE_DBPASS}}@{{controller_host}}/keystone"
+    line: "connection = mysql+pymysql://keystone:{{keystone_mysql_password}}@{{controller_host}}/keystone"
     backrefs: yes
 
 - lineinfile:
@@ -108,7 +108,15 @@
     regexp: "^#*.*provider ="
     line: "provider = fernet"
 
-- shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+- apt:
+    state: present
+    name: python-pexpect
+
+- expect:
+    command: su -s /bin/sh -c "keystone-manage db_sync" dr-jenkins
+    responses:
+      (?i)password: "{{keystone_mysql_password}}"
+
 - shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
 
 - lineinfile:
@@ -140,7 +148,7 @@
       <VirtualHost *:35357>
           WSGIDaemonProcess keystone-admin processes=5 threads=1 user=keystone group=keystone display-name=%{GROUP}
           WSGIProcessGroup keystone-admin
-          WSGIScriptAlias / /usr/bin/keystone-wsgi-admin
+          WSGIScriptAlias / /usr/bin/keystone-wsgi-admi"
           WSGIApplicationGroup %{GLOBAL}
           WSGIPassAuthorization On
           ErrorLogFormat "%{cu}t %M"
@@ -156,6 +164,10 @@
     dest: /etc/apache2/sites-enabled/wsgi-keystone.conf
     src:  /etc/apache2/sites-available/wsgi-keystone.conf
     state: link
+
+- service:
+    name: keystone
+    state: started
 
 - service:
     name: apache2
