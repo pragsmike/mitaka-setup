@@ -1,7 +1,7 @@
 ---
-- hosts: mitaka
+- hosts: mitaka-14
   vars:
-    - controller_host: mitaka
+    - controller_host: mitaka-14
   roles:
     - controller/common
   environment:
