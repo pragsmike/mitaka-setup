@@ -4,6 +4,7 @@
     - controller_host: mitaka-14
   roles:
     - controller/common
+    - controller/glance
   environment:
     OS_URL: "{{keystone_admin_url}}"
     OS_IDENTITY_API_VERSION: 3
