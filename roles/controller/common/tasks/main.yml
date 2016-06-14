@@ -174,8 +174,40 @@
     dest: /var/lib/keystone/keystone.db
     state: absent
 
+- pip: name=shade state=present
+
 # These are not idempotent!
-- shell: openstack service create --name keystone --description "OpenStack Identity" identity
+# Give these IDs upon creation for easier deletion and modification later?!?!?!?!?!?!?!?!
+- shell: openstack service create  --name keystone --description "OpenStack Identity" identity
+
 - shell: openstack endpoint create --region RegionOne identity public http://{{controller_host}}:5000/v3
 - shell: openstack endpoint create --region RegionOne identity internal http://{{controller_host}}:5000/v3
 - shell: openstack endpoint create --region RegionOne identity admin http://{{controller_host}}:35357/v3
+
+# - os_keystone_domain:
+#    state: present
+#    name: default
+#    description: "Default domain"
+#    os-identity-api-version: "3"
+
+- shell: openstack domain create default --description "Default Domain" default
+
+- shell: openstack project create --domain default --description "Admin Project" admin
+
+- os_user:
+    domain: default
+    state: present
+    name: admin
+    password: rms
+
+- shell: openstack role create admin
+- shell: openstack role add --project admin --user admin
+- shell: openstack project create --domain default --description "Service Project" service
+- shell: openstack role create user
+- shell: openstack role add --project demo --user demo user
+
+- shell: unset OS_TOKEN OS_URL
+
+- shell: openstack --os-auth-url http://{{controller_host}}:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name admin --os-username admin token issue
+
+- shell: openstack --os-auth-url http://{{controller_host}}:5000/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name demo --os-username demo token issue
