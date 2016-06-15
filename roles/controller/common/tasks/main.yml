@@ -176,38 +176,90 @@
 
 - pip: name=shade state=present
 
+# get the right version of pexpect
+
 # These are not idempotent!
-# Give these IDs upon creation for easier deletion and modification later?!?!?!?!?!?!?!?!
+# Convert to openstack services?
 - shell: openstack service create  --name keystone --description "OpenStack Identity" identity
 
 - shell: openstack endpoint create --region RegionOne identity public http://{{controller_host}}:5000/v3
 - shell: openstack endpoint create --region RegionOne identity internal http://{{controller_host}}:5000/v3
 - shell: openstack endpoint create --region RegionOne identity admin http://{{controller_host}}:35357/v3
 
-# - os_keystone_domain:
+#- os_keystone_domain:
+#    cloud: mitaka-14
 #    state: present
 #    name: default
 #    description: "Default domain"
-#    os-identity-api-version: "3"
+#    auth:
+#      auth_url: http://mitaka-14:35357/v3
+#      username: admin
+#      password: secret
+#      project_name: admin
+#      default_domain: default
+#      identity_api_version: 3
+#      url: http://mitaka-14:35357/v3
+#  tags:
+#    - domain-setup
 
-- shell: openstack domain create default --description "Default Domain" default
+
+- shell: openstack domain create --description "Default Domain" default
 
 - shell: openstack project create --domain default --description "Admin Project" admin
 
-- os_user:
-    domain: default
-    state: present
-    name: admin
-    password: rms
+- expect:
+    command: openstack user create --domain default --password-prompt admin
+    responses:
+      (?i)password: Vinson00
+# - os_user:
+#    domain: default
+#    state: present
+#    name: admin
+#    password: rms
 
 - shell: openstack role create admin
-- shell: openstack role add --project admin --user admin
+
+- shell: openstack role add --project admin --user admin admin
+
 - shell: openstack project create --domain default --description "Service Project" service
+- shell: openstack project create --domain default --description "Demo Project" demo
+
+- expect:
+    command: openstack user create --domain default --password-prompt demo
+    responses:
+      (?i)password: Vinson00
+
 - shell: openstack role create user
 - shell: openstack role add --project demo --user demo user
 
+# edit the /etc/keystone/keystone-paste.ini
+# remove admin_token_auth from the following sections
+   # pipeline:public_api
+   # pipeline:admin_api
+   # pipeline: api_v3
+- lineinfile:
+    dest: /etc/keystone/keystone-paste.ini
+    regexp: "pipeline = cors sizelimit url_normalize request_id admin_token_auth build_auth_context token_auth json_body ec2_extension public_service"
+    line: "pipeline = cors sizelimit url_normalize request_id build_auth_context token_auth json_body ec2_extension public_service"
+
+- lineinfile:
+    dest: /etc/keystone/keystone-paste.ini
+    regexp: "pipeline = cors sizelimit url_normalize request_id admin_token_auth build_auth_context token_auth json_body ec2_extension s3_extension admin_service"
+    line: "pipeline = cors sizelimit url_normalize request_id build_auth_context token_auth json_body ec2_extension s3_extension admin_service"
+
+- lineinfile:
+    dest: /etc/keystone/keystone-paste.ini
+    regexp: "pipeline = cors sizelimit url_normalize request_id admin_token_auth build_auth_context token_auth json_body ec2_extension_v3 s3_extension service_v3"
+    line: "pipeline = cors sizelimit url_normalize request_id build_auth_context token_auth json_body ec2_extension_v3 s3_extension service_v3"
+
 - shell: unset OS_TOKEN OS_URL
 
-- shell: openstack --os-auth-url http://{{controller_host}}:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name admin --os-username admin token issue
+- expect:
+    command: openstack --os-auth-url http://{{controller_host}}:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name admin --os-username admin token issue
+    responses:
+      (?i)password: Vinson00
 
-- shell: openstack --os-auth-url http://{{controller_host}}:5000/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name demo --os-username demo token issue
+- expect:
+    command: openstack --os-auth-url http://{{controller_host}}:5000/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name demo --os-username demo token issue
+    responses:
+      (?i)password: Vinson00
