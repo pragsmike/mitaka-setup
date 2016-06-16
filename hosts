@@ -1,5 +1,5 @@
 [controller]
-mitaka-14
+mitaka-14-controller ansible_host=10.20.20.248
 
 [compute]
 

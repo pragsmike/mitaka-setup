@@ -4,6 +4,7 @@
 #- apt_repository: repo='cloud-archive:mitaka'
 - apt_repository: repo='deb http://ubuntu-cloud.archive.canonical.com/ubuntu trusty-updates/mitaka main'
 - apt_key: keyserver=hkp://keyserver.ubuntu.com:80 id=5EDB1B62EC4926EA
+- shell: apt-get update
 - apt: update_cache=yes upgrade=dist cache_valid_time=86400
 - apt: name=python-openstackclient state=latest
 
@@ -108,11 +109,7 @@
     regexp: "^#*.*provider ="
     line: "provider = fernet"
 
-- apt:
-    state: present
-    name: python-pexpect
-
-- shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+- shell: su -s /bin/sh -c "keystone-manage db_sync" keystone unset OS_TOKEN OS_URL
 
 - shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
 
@@ -174,7 +171,12 @@
     dest: /var/lib/keystone/keystone.db
     state: absent
 
+- apt:
+    state: present
+    name: python-pip
+
 - pip: name=shade state=present
+- pip: name=pexpect state=present
 
 # get the right version of pexpect
 
@@ -232,11 +234,13 @@
 - shell: openstack role create user
 - shell: openstack role add --project demo --user demo user
 
+
 # edit the /etc/keystone/keystone-paste.ini
 # remove admin_token_auth from the following sections
    # pipeline:public_api
    # pipeline:admin_api
    # pipeline: api_v3
+
 - lineinfile:
     dest: /etc/keystone/keystone-paste.ini
     regexp: "pipeline = cors sizelimit url_normalize request_id admin_token_auth build_auth_context token_auth json_body ec2_extension public_service"
@@ -254,12 +258,14 @@
 
 - shell: unset OS_TOKEN OS_URL
 
-- expect:
-    command: openstack --os-auth-url http://{{controller_host}}:35357/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name admin --os-username admin token issue
-    responses:
-      (?i)password: Vinson00
+# TODO: Execute these commands, ignoring environment variables.
 
-- expect:
-    command: openstack --os-auth-url http://{{controller_host}}:5000/v3 --os-project-domain-name default --os-user-domain-name default --os-project-name demo --os-username demo token issue
-    responses:
-      (?i)password: Vinson00
+#- expect:
+#    command: openstack --os-auth-url http://{{controller_host}}:35357/v3 --os-project-domain-name d# efault --os-user-domain-name default --os-project-name admin --os-username admin token issue
+#    responses:
+#      (?i)password: Vinson00
+
+# - expect:
+#    command: openstack --os-auth-url http://{{controller_host}}:5000/v3 --os-project-domain-name de# fault --os-user-domain-name default --os-project-name demo --os-username demo token issue
+#    responses:
+#      (?i)password: Vinson00

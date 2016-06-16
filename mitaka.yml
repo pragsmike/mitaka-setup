@@ -1,10 +1,10 @@
 ---
-- hosts: mitaka-14
+- hosts: mitaka-14-controller
   vars:
-    - controller_host: mitaka-14
+    - controller_host: mitaka-14-controller
   roles:
     - controller/common
-    - controller/glance
+#    - controller/glance
   environment:
     OS_URL: "{{keystone_admin_url}}"
     OS_IDENTITY_API_VERSION: 3
